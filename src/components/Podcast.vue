@@ -60,7 +60,6 @@ export default {
     ...mapActions(["loadPodcast"])
   },
   created() {
-    this.podcast = null;
     this.loadPodcast(this.$route.params.id);
   }
 };
