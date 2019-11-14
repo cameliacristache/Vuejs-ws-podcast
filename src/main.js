@@ -7,10 +7,22 @@ import About from "./components/About";
 import axios from "axios";
 import VueAxios from "vue-axios";
 import Vuex from "vuex";
+import VueApollo from "vue-apollo";
+import gql from "graphql-tag";
+
+import ApolloClient from "apollo-boost";
 
 Vue.use(VueRouter);
 Vue.use(VueAxios, axios);
 Vue.use(Vuex);
+
+const apolloClient = new ApolloClient({
+  uri: "https://jsnoise.herokuapp.com/graphql"
+});
+
+const apolloProvider = new VueApollo({
+  defaultClient: apolloClient
+});
 
 let router = new VueRouter({
   mode: "history",
@@ -43,6 +55,32 @@ var store = new Vuex.Store({
   },
   actions: {
     loadPodcasts({ commit, state }) {
+      apolloClient
+        .query({
+          query: gql`
+            query shows($page: Int) {
+              showsList(page: $page) {
+                first
+                last
+                shows {
+                  id
+                  title
+                  mp3
+                  publishedDate
+                  producerName
+                  producerId
+                }
+              }
+            }
+          `,
+          variables: { page: state.page }
+        })
+        .then(response => {
+          commit("LOAD_PODCASTS", response.data.showsList);
+        })
+        .catch(err => console.dir("gql err: ", err));
+    },
+    loadPodcastsREST({ commit, state }) {
       axios
         .get(`https://jsnoise.herokuapp.com/api/showslist?page=${state.page}`)
         .then(response => {
@@ -51,7 +89,29 @@ var store = new Vuex.Store({
         })
         .catch(err => console.dir(err));
     },
-    loadPodcast({ commit }, showId) {
+    loadPodcast({ commit, state }, showId) {
+      apolloClient
+        .query({
+          query: gql`
+            query oneShow($id: Int!) {
+              show(id: $id) {
+                id
+                title
+                mp3
+                description
+                producerName
+                publishedDate
+              }
+            }
+          `,
+          variables: { id: showId }
+        })
+        .then(response => {
+          commit("LOAD_PODCAST", response.data.show);
+        })
+        .catch(err => console.dir("gql err: ", err));
+    },
+    loadPodcastREST({ commit }, showId) {
       axios
         .get(`https://jsnoise.herokuapp.com/api/shows/${showId}`)
         .then(response => {
@@ -81,5 +141,6 @@ Vue.filter("formatDate", function(dt) {
 new Vue({
   router,
   store,
+  apolloProvider,
   render: h => h(App)
 }).$mount("#app");
